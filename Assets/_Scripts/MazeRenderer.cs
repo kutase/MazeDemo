@@ -1,31 +1,30 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace MazeDemo
 {
     public class MazeRenderer : MonoBehaviour
     {
-        [SerializeField] private float cellSize = 1f;
+        [SerializeField]
+        private float cellSize = 1f;
 
-        [SerializeField] private int width = 10;
+        [SerializeField]
+        private GameObject wallPrefab;
+        
+        private List<GameObject> walls = new List<GameObject>();
 
-        [SerializeField] private int height = 10;
-
-        [SerializeField] private GameObject wallPrefab;
-
-        private Maze maze;
-        public Maze Maze => maze;
-
-        private void Awake()
+        public void Draw(Maze maze)
         {
-            maze = new Maze(width, height);
-            Draw(maze);
-        }
-
-        private void Draw(Maze maze)
-        {
-            for (int i = 0; i < width; i++)
+            foreach (var wall in walls)
             {
-                for (int j = 0; j < height; j++)
+                Destroy(wall);
+            }
+
+            walls.Clear();
+
+            for (int i = 0; i < maze.Width; i++)
+            {
+                for (int j = 0; j < maze.Height; j++)
                 {
                     var cell = maze.GetCell(i, j);
                     var position = maze.MazeCoordinatesToWorld(i, j);
@@ -37,6 +36,8 @@ namespace MazeDemo
 
                         var topWallScale = topWall.transform.localScale;
                         topWall.transform.localScale = new Vector3(cellSize, topWallScale.y, topWallScale.z);
+
+                        walls.Add(topWall);
                     }
 
                     if (cell.HasFlag(WallState.LEFT))
@@ -47,9 +48,11 @@ namespace MazeDemo
 
                         var leftWallScale = leftWall.transform.localScale;
                         leftWall.transform.localScale = new Vector3(cellSize, leftWallScale.y, leftWallScale.z);
+                        
+                        walls.Add(leftWall);
                     }
 
-                    if (i == width - 1)
+                    if (i == maze.Width - 1)
                     {
                         if (cell.HasFlag(WallState.RIGHT))
                         {
@@ -59,6 +62,8 @@ namespace MazeDemo
 
                             var rightWallScale = rightWall.transform.localScale;
                             rightWall.transform.localScale = new Vector3(cellSize, rightWallScale.y, rightWallScale.z);
+
+                            walls.Add(rightWall);
                         }
                     }
 
@@ -71,6 +76,8 @@ namespace MazeDemo
 
                             var downWallScale = downWall.transform.localScale;
                             downWall.transform.localScale = new Vector3(cellSize, downWallScale.y, downWallScale.z);
+
+                            walls.Add(downWall);
                         }
                     }
                 }

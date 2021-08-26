@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
@@ -15,6 +16,31 @@ namespace MazeDemo
 
         public int X;
         public int Y;
+
+        public override string ToString()
+        {
+            return $"({X},{Y})";
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is CellPosition cellPosition && this == cellPosition;
+        }
+
+        public static bool operator ==(CellPosition first, CellPosition second) 
+        {
+            return first.X == second.X && first.Y == second.Y;
+        }
+
+        public static bool operator !=(CellPosition x, CellPosition y) 
+        {
+            return !(x == y);
+        }
+
+        public override int GetHashCode()
+        {
+            return X.GetHashCode() ^ Y.GetHashCode();
+        }
     }
 
     public struct Neighbour
@@ -42,6 +68,10 @@ namespace MazeDemo
 
         private int width;
         private int height;
+
+        public int Width => width;
+
+        public int Height => height;
 
         private float halfWidth;
         private float halfHeight;
@@ -104,9 +134,13 @@ namespace MazeDemo
 
                     var neighbourPos = neighbour.CellPosition;
 
+                    // remove shared wall
                     cells[current.X, current.Y] &= ~neighbour.SharedWall;
+
+                    // remove own shared wall
                     cells[neighbourPos.X, neighbourPos.Y] &= ~GetOppositeWall(neighbour.SharedWall);
 
+                    // set cell visited
                     cells[neighbourPos.X, neighbourPos.Y] |= WallState.VISITED;
 
                     positionStack.Push(neighbourPos);
@@ -218,11 +252,34 @@ namespace MazeDemo
             return new Vector3(-halfWidth + x, 0, -halfHeight + y);
         }
 
-        public Vector2 WorldCoordinatesToMaze(Vector3 worldCoordinates)
+        public Vector3 MazeCoordinatesToWorld(CellPosition position)
+        {
+            return MazeCoordinatesToWorld(position.X, position.Y);
+        }
+
+        public CellPosition WorldCoordinatesToMaze(Vector3 worldCoordinates)
+        {
+            return new CellPosition(
+                Mathf.RoundToInt(Mathf.RoundToInt(worldCoordinates.x) + halfWidth),
+                Mathf.RoundToInt(Mathf.RoundToInt(worldCoordinates.z) + halfHeight)
+            );
+        }
+
+        public Vector3 GetMazeCenter()
+        {
+            var leftTopPosition = MazeCoordinatesToWorld(0, height - 1);
+            var righBottomPosition = MazeCoordinatesToWorld(width - 1, 0);
+
+            var diff = (righBottomPosition - leftTopPosition);
+
+            return leftTopPosition + diff.normalized * diff.magnitude / 2f;
+        }
+
+        public Vector2 GetMazeWorldSize()
         {
             return new Vector2(
-                Mathf.RoundToInt(worldCoordinates.x) + halfWidth,
-                Mathf.RoundToInt(worldCoordinates.z) + halfHeight
+                Vector3.Distance(MazeCoordinatesToWorld(0, 0), MazeCoordinatesToWorld(width - 1, 0)),
+                Vector3.Distance(MazeCoordinatesToWorld(0, 0), MazeCoordinatesToWorld(0, height - 1))
             );
         }
 
@@ -234,6 +291,85 @@ namespace MazeDemo
         public CellPosition GetRandomCell()
         {
             return new CellPosition(Random.Range(0, width), Random.Range(0, height));
+        }
+
+        public List<Vector3> FindPath(Vector3 startPoint, Vector3 endPoint)
+        {
+            var startCell = WorldCoordinatesToMaze(startPoint);
+            var endCell = WorldCoordinatesToMaze(endPoint);
+
+            var parents = new Dictionary<CellPosition, CellPosition>();
+
+            var visitedNodes = new List<CellPosition>();
+
+            var cellsQueue = new Queue<CellPosition>();
+
+            cellsQueue.Enqueue(startCell);
+            visitedNodes.Add(startCell);
+
+            var path = new List<CellPosition>();
+
+            while (cellsQueue.Count > 0)
+            {
+                var currentCell = cellsQueue.Dequeue();
+
+                if (currentCell == endCell)
+                {
+                    break;
+                }
+
+                var neighbours = GetNeighbours(currentCell)
+                    .Where(it => !visitedNodes.Contains(it))
+                    .ToList();
+
+                foreach (var nextCell in neighbours)
+                {
+                    visitedNodes.Add(nextCell);
+                    parents[nextCell] = currentCell;
+
+                    cellsQueue.Enqueue(nextCell);
+                }
+            }
+
+            var parentCell = endCell;
+
+            while (parents.ContainsKey(parentCell))
+            {
+                path.Add(parentCell);
+                parentCell = parents[parentCell];
+            }
+
+            path.Add(startCell);
+            path.Reverse();
+
+            return path.Select(MazeCoordinatesToWorld).ToList();
+        }
+
+        private List<CellPosition> GetNeighbours(CellPosition cell)
+        {
+            var result = new List<CellPosition>();
+
+            if (cell.X - 1 >= 0 && !cells[cell.X, cell.Y].HasFlag(WallState.LEFT))
+            {
+                result.Add(new CellPosition(cell.X - 1, cell.Y));
+            }
+
+            if (cell.X + 1 < width && !cells[cell.X, cell.Y].HasFlag(WallState.RIGHT))
+            {
+                result.Add(new CellPosition(cell.X + 1, cell.Y));
+            }
+
+            if (cell.Y - 1 >= 0 && !cells[cell.X, cell.Y].HasFlag(WallState.DOWN))
+            {
+                result.Add(new CellPosition(cell.X, cell.Y - 1));
+            }
+
+            if (cell.Y + 1 < height && !cells[cell.X, cell.Y].HasFlag(WallState.UP))
+            {
+                result.Add(new CellPosition(cell.X, cell.Y + 1));
+            }
+
+            return result;
         }
     }
 }

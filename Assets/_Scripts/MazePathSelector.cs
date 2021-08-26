@@ -1,13 +1,22 @@
 using System;
 using UnityEngine;
+using Zenject;
 
 namespace MazeDemo
 {
     public class MazePathSelector : MonoBehaviour
     {
-        [SerializeField] private LayerMask selectorLayers;
+        [SerializeField]
+        private LayerMask selectorLayers;
 
-        [SerializeField] private MazeRenderer mazeRenderer;
+        [Inject]
+        private IMazeProvider mazeProvider;
+
+        [Inject]
+        private Character character;
+
+        [Inject]
+        private PathRenderer pathRenderer;
 
         private Camera mainCamera;
 
@@ -25,7 +34,10 @@ namespace MazeDemo
 
                 if (Physics.Raycast(ray, out hit, +Single.PositiveInfinity, selectorLayers))
                 {
-                    Debug.Log($"hit: {hit.point} {mazeRenderer.Maze.WorldCoordinatesToMaze(hit.point)}");
+                    var path = mazeProvider.Maze.FindPath(character.transform.position, hit.point);
+
+                    pathRenderer.ShowPath(path);
+                    character.MoveByPath(path);
                 }
             }
         }
