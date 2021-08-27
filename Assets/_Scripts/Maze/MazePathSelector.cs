@@ -32,7 +32,7 @@ namespace MazeDemo
                 RaycastHit hit;
                 Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
 
-                if (Physics.Raycast(ray, out hit, +Single.PositiveInfinity, selectorLayers))
+                if (Physics.SphereCast(ray, 0.5f, out hit, +Single.PositiveInfinity, selectorLayers))
                 {
                     var path = mazeProvider.Maze.FindPath(character.transform.position, hit.point);
 
